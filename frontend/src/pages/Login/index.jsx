@@ -1,0 +1,77 @@
+import React from 'react'
+import { Card, Form, Input, Button, message } from 'antd'
+import { UserOutlined, LockOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
+import { useUser } from '../../store/userStore'
+import request from '../../utils/request'
+import api from '../../config/api'
+
+function Login() {
+  const navigate = useNavigate()
+  const { login } = useUser()
+  const [loading, setLoading] = React.useState(false)
+
+  const onFinish = async (values) => {
+    setLoading(true)
+    try {
+      const res = await request.post(api.login, values)
+      if (res?.code === 0 || res?.success) {
+        const token = res.data?.token || res.token
+        const userInfo = res.data?.userInfo || res.userInfo
+        login(token, userInfo)
+        message.success('登录成功')
+        navigate('/home')
+      } else {
+        message.error(res?.message || '登录失败')
+      }
+    } catch (error) {
+      console.error('登录失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card
+      title="系统登录"
+      style={{
+        width: 400,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+      }}
+    >
+      <Form
+        name="login"
+        initialValues={{ remember: true }}
+        onFinish={onFinish}
+        size="large"
+      >
+        <Form.Item
+          name="username"
+          rules={[{ required: true, message: '请输入用户名' }]}
+        >
+          <Input prefix={<UserOutlined />} placeholder="用户名" />
+        </Form.Item>
+
+        <Form.Item
+          name="password"
+          rules={[{ required: true, message: '请输入密码' }]}
+        >
+          <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+        </Form.Item>
+
+        <Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            loading={loading}
+          >
+            登录
+          </Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  )
+}
+
+export default Login

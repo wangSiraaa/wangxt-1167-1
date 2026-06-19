@@ -1,0 +1,40 @@
+{
+  "name": "auction-deposit-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "司法拍卖保证金退还系统前端",
+  "scripts": {
+    "start": "set PORT=20467 && craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject",
+    "dev": "set PORT=20467 && craco start"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.2.6",
+    "antd": "^5.12.8",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.1",
+    "react-scripts": "5.0.1",
+    "store": "^2.0.12"
+  },
+  "devDependencies": {
+    "@craco/craco": "^7.1.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:19467"
+}
