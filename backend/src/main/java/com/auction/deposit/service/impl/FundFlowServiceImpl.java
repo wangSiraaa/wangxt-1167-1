@@ -84,15 +84,15 @@ public class FundFlowServiceImpl implements FundFlowService {
     @Transactional(rollbackFor = Exception.class)
     public void createDepositPayFlow(Long depositId, BigDecimal amount, String payMethod, String payOrderNo, Long userId) {
         FundFlow flow = new FundFlow();
-        flow.setFlowType("DEPOSIT_PAY");
+        flow.setFlowType("deposit_pay");
         flow.setAmount(amount);
-        flow.setDirection("IN");
-        flow.setRelateType("DEPOSIT");
+        flow.setDirection("in");
+        flow.setRelateType("deposit");
         flow.setRelateId(depositId);
         flow.setUserId(userId);
         flow.setPayMethod(payMethod);
         flow.setPayOrderNo(payOrderNo);
-        flow.setFlowStatus("SUCCESS");
+        flow.setFlowStatus("success");
         flow.setRemark("保证金缴纳");
         createFlow(flow);
     }
@@ -101,14 +101,14 @@ public class FundFlowServiceImpl implements FundFlowService {
     @Transactional(rollbackFor = Exception.class)
     public void createDepositRefundFlow(Long refundId, BigDecimal amount, String payOrderNo, Long userId) {
         FundFlow flow = new FundFlow();
-        flow.setFlowType("DEPOSIT_REFUND");
+        flow.setFlowType("deposit_refund");
         flow.setAmount(amount);
-        flow.setDirection("OUT");
-        flow.setRelateType("REFUND");
+        flow.setDirection("out");
+        flow.setRelateType("refund");
         flow.setRelateId(refundId);
         flow.setUserId(userId);
         flow.setPayOrderNo(payOrderNo);
-        flow.setFlowStatus("SUCCESS");
+        flow.setFlowStatus("success");
         flow.setRemark("保证金退款");
         createFlow(flow);
     }
@@ -117,13 +117,13 @@ public class FundFlowServiceImpl implements FundFlowService {
     @Transactional(rollbackFor = Exception.class)
     public void createDepositDeductFlow(Long deductId, BigDecimal amount, Long userId) {
         FundFlow flow = new FundFlow();
-        flow.setFlowType("DEPOSIT_DEDUCT");
+        flow.setFlowType("deposit_deduct");
         flow.setAmount(amount);
-        flow.setDirection("OUT");
-        flow.setRelateType("DEDUCT");
+        flow.setDirection("out");
+        flow.setRelateType("deduct");
         flow.setRelateId(deductId);
         flow.setUserId(userId);
-        flow.setFlowStatus("SUCCESS");
+        flow.setFlowStatus("success");
         flow.setRemark("保证金抵扣");
         createFlow(flow);
     }

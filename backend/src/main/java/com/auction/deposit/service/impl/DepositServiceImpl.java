@@ -88,7 +88,7 @@ public class DepositServiceImpl implements DepositService {
             throw new BusinessException("标的不存在");
         }
 
-        if (!"PENDING".equals(item.getItemStatus()) && !"ONGOING".equals(item.getItemStatus())) {
+        if (!"pending".equals(item.getItemStatus()) && !"ongoing".equals(item.getItemStatus())) {
             throw new BusinessException("只有待开始或进行中的标的才能缴纳保证金");
         }
 
@@ -123,7 +123,7 @@ public class DepositServiceImpl implements DepositService {
         fundFlowService.createDepositPayFlow(deposit.getId(), item.getDepositAmount(), payMethod, payOrderNo, bidderId);
 
         auditLogService.logAudit("DEPOSIT", deposit.getId(), deposit.getDepositNo(),
-                "PAY", "缴纳保证金", "UNPAID", "PAID", "标的：" + item.getItemName() + "，金额：" + item.getDepositAmount());
+                "PAY", "缴纳保证金", "unpaid", "paid", "标的：" + item.getItemName() + "，金额：" + item.getDepositAmount());
 
         return deposit;
     }

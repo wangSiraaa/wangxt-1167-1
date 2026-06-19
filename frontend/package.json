@@ -4,11 +4,11 @@
   "private": true,
   "description": "司法拍卖保证金退还系统前端",
   "scripts": {
-    "start": "set PORT=20467 && craco start",
-    "build": "craco build",
-    "test": "craco test",
+    "start": "PORT=20467 react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "dev": "set PORT=20467 && craco start"
+    "dev": "PORT=20467 react-scripts start"
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
@@ -21,9 +21,7 @@
     "react-scripts": "5.0.1",
     "store": "^2.0.12"
   },
-  "devDependencies": {
-    "@craco/craco": "^7.1.0"
-  },
+  "devDependencies": {},
   "browserslist": {
     "production": [
       ">0.2%",

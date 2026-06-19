@@ -1,8 +1,5 @@
 package com.auction.deposit.common;
 
-import lombok.Getter;
-
-@Getter
 public class BusinessException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
@@ -27,5 +24,9 @@ public class BusinessException extends RuntimeException {
     public BusinessException(Integer code, String message, Throwable cause) {
         super(message, cause);
         this.code = code;
+    }
+
+    public Integer getCode() {
+        return code;
     }
 }

@@ -165,7 +165,7 @@ function Dashboard() {
             <List
               loading={loading}
               dataSource={recentLogs}
-              locale={{ emptyText: <Empty description="暂无操作记录" />}
+              locale={{ emptyText: <Empty description="暂无操作记录" /> }}
               renderItem={(item) => (
                 <List.Item key={item.id}>
                   <List.Item.Meta

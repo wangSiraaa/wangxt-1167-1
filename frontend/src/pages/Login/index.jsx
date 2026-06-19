@@ -20,7 +20,7 @@ function Login() {
         const userInfo = res.data?.userInfo || res.userInfo
         login(token, userInfo)
         message.success('登录成功')
-        navigate('/home')
+        navigate('/dashboard')
       } else {
         message.error(res?.message || '登录失败')
       }

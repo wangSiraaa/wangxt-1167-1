@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Form, Input, Select, Tag, Space, message, Modal, InputNumber } from 'antd'
-import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, RefundOutlined, AuditOutlined } from '@ant-design/icons'
+import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, DollarOutlined, AuditOutlined } from '@ant-design/icons'
 import request from '../../../utils/request'
 import { formatMoney, formatDateTime } from '../../../utils/format'
 import api from '../../../config/api'
@@ -299,7 +299,7 @@ function DepositList() {
           <Button type="link" size="small" icon={<BankOutlined />} onClick={() => handleBankAccount(record)}>
             更新收款账号
           </Button>
-          <Button type="link" size="small" icon={<RefundOutlined />} onClick={() => handleRefund(record)}>
+          <Button type="link" size="small" icon={<DollarOutlined />} onClick={() => handleRefund(record)}>
             退款
           </Button>
           <Button type="link" size="small" icon={<AuditOutlined />} onClick={() => handleDeduct(record)}>

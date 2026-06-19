@@ -113,7 +113,7 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         if (item == null) {
             throw new BusinessException("标的不存在");
         }
-        if ("DEALED".equals(item.getDealStatus())) {
+        if ("dealed".equals(item.getDealStatus())) {
             throw new BusinessException("标的已成交，请勿重复确认");
         }
 
@@ -122,7 +122,7 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         item.setWinnerId(winnerId);
         item.setDealPrice(dealPrice);
         item.setDealTime(LocalDateTime.now());
-        item.setDealStatus("DEALED");
+        item.setDealStatus("dealed");
         item.setUpdateBy(CurrentUser.getUserId());
         item.setUpdateTime(LocalDateTime.now());
         auctionItemMapper.updateById(item);
@@ -144,16 +144,16 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         List<AuctionDeposit> depositList = auctionDepositMapper.selectList(depositWrapper);
         for (AuctionDeposit deposit : depositList) {
             if (deposit.getBidderId().equals(winnerId)) {
-                deposit.setBidStatus("WON");
+                deposit.setBidStatus("won");
             } else {
-                deposit.setBidStatus("LOST");
+                deposit.setBidStatus("lost");
             }
             deposit.setUpdateTime(LocalDateTime.now());
             auctionDepositMapper.updateById(deposit);
         }
 
         auditLogService.logAudit("AUCTION_ITEM", itemId, item.getItemCode(),
-                "CONFIRM_DEAL", "确认成交", beforeStatus, "DEALED",
+                "CONFIRM_DEAL", "确认成交", beforeStatus, "dealed",
                 "竞得人ID：" + winnerId + "，成交价：" + dealPrice);
     }
 
@@ -164,7 +164,7 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         if (item == null) {
             throw new BusinessException("标的不存在");
         }
-        if (!"DEALED".equals(item.getDealStatus())) {
+        if (!"dealed".equals(item.getDealStatus())) {
             throw new BusinessException("标的未成交，无法更新尾款支付");
         }
 
@@ -173,12 +173,12 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         item.setTailPaidAmount(paidAmount);
         if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
             if (paidAmount.compareTo(item.getDealPrice().subtract(item.getDepositAmount())) >= 0) {
-                item.setTailPaidStatus("PAID");
+                item.setTailPaidStatus("paid");
             } else {
-                item.setTailPaidStatus("PARTIAL");
+                item.setTailPaidStatus("partial");
             }
         } else {
-            item.setTailPaidStatus("UNPAID");
+            item.setTailPaidStatus("unpaid");
         }
         item.setUpdateBy(CurrentUser.getUserId());
         item.setUpdateTime(LocalDateTime.now());

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Form, Input, Select, Tag, Space, message, Modal } from 'antd'
-import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, RefundOutlined } from '@ant-design/icons'
+import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, DollarOutlined } from '@ant-design/icons'
 import request from '../../../utils/request'
 import { formatMoney, formatDateTime } from '../../../utils/format'
 import { useUser } from '../../../store/userStore'
@@ -257,7 +257,7 @@ function MyDeposit() {
             更新收款账号
           </Button>
           {record.payStatus === 'PAID' && record.refundStatus !== 'REFUNDING' && record.refundStatus !== 'REFUNDED' && (
-            <Button type="link" size="small" icon={<RefundOutlined />} onClick={() => handleRefund(record)}>
+            <Button type="link" size="small" icon={<DollarOutlined />} onClick={() => handleRefund(record)}>
               申请退款
             </Button>
           )}
