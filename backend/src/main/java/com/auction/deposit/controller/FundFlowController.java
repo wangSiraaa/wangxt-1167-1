@@ -4,12 +4,15 @@ import com.auction.deposit.common.Constants;
 import com.auction.deposit.common.CurrentUser;
 import com.auction.deposit.common.PageResult;
 import com.auction.deposit.common.Result;
+import com.auction.deposit.dto.FundChainDTO;
 import com.auction.deposit.entity.FundFlow;
 import com.auction.deposit.service.FundFlowService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Api(tags = "资金流水")
 @RestController
@@ -51,5 +54,19 @@ public class FundFlowController {
         flow.setUserId(CurrentUser.getUserId());
         PageResult<FundFlow> result = fundFlowService.getFlowList(page, flow);
         return Result.success(result);
+    }
+
+    @ApiOperation("保证金资金链查询")
+    @GetMapping("/chain")
+    public Result<FundChainDTO> getFundChain(@RequestParam Long depositId) {
+        FundChainDTO chain = fundFlowService.getFundChain(depositId);
+        return Result.success(chain);
+    }
+
+    @ApiOperation("按标的查询资金链列表")
+    @GetMapping("/chainByItem")
+    public Result<List<FundChainDTO>> getFundChainByItem(@RequestParam Long itemId) {
+        List<FundChainDTO> chains = fundFlowService.getFundChainByItemId(itemId);
+        return Result.success(chains);
     }
 }

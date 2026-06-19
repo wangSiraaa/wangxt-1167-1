@@ -15,6 +15,8 @@ public class RefundApply {
 
     private String refundNo;
 
+    private Long parentId;
+
     private Long depositId;
 
     private Long itemId;
@@ -49,6 +51,8 @@ public class RefundApply {
 
     private String payOrderNo;
 
+    private String failReason;
+
     private LocalDateTime completeTime;
 
     private String remark;
@@ -71,6 +75,14 @@ public class RefundApply {
 
     public void setRefundNo(String refundNo) {
         this.refundNo = refundNo;
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
 
     public Long getDepositId() {
@@ -207,6 +219,14 @@ public class RefundApply {
 
     public void setPayOrderNo(String payOrderNo) {
         this.payOrderNo = payOrderNo;
+    }
+
+    public String getFailReason() {
+        return failReason;
+    }
+
+    public void setFailReason(String failReason) {
+        this.failReason = failReason;
     }
 
     public LocalDateTime getCompleteTime() {

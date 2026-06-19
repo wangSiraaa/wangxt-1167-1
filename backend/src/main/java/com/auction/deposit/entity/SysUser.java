@@ -34,6 +34,12 @@ public class SysUser {
 
     private Integer status;
 
+    private Integer judicialFrozen;
+
+    private String frozenReason;
+
+    private LocalDateTime frozenTime;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

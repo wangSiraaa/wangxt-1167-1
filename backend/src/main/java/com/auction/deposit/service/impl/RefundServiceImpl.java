@@ -5,9 +5,11 @@ import com.auction.deposit.common.PageResult;
 import com.auction.deposit.entity.AuctionDeposit;
 import com.auction.deposit.entity.AuctionItem;
 import com.auction.deposit.entity.RefundApply;
+import com.auction.deposit.entity.SysUser;
 import com.auction.deposit.mapper.AuctionDepositMapper;
 import com.auction.deposit.mapper.AuctionItemMapper;
 import com.auction.deposit.mapper.RefundApplyMapper;
+import com.auction.deposit.mapper.SysUserMapper;
 import com.auction.deposit.service.AuditLogService;
 import com.auction.deposit.service.FundFlowService;
 import com.auction.deposit.service.RefundService;
@@ -35,6 +37,9 @@ public class RefundServiceImpl implements RefundService {
 
     @Autowired
     private AuctionItemMapper auctionItemMapper;
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
 
     @Autowired
     private FundFlowService fundFlowService;
@@ -99,6 +104,10 @@ public class RefundServiceImpl implements RefundService {
             throw new BusinessException("可退款金额为零，不能申请退款");
         }
 
+        if ("pending_deduct".equals(deposit.getDeductStatus())) {
+            throw new BusinessException("竞得人保证金待抵扣尾款，不能申请退款");
+        }
+
         if ("won".equals(deposit.getBidStatus())) {
             AuctionItem item = auctionItemMapper.selectById(deposit.getItemId());
             if (item == null || !"paid".equals(item.getTailPaidStatus())) {
@@ -106,15 +115,26 @@ public class RefundServiceImpl implements RefundService {
             }
         }
 
-        if ("lost".equals(deposit.getBidStatus())) {
+        if (!"won".equals(deposit.getBidStatus())) {
+            SysUser bidder = sysUserMapper.selectById(deposit.getBidderId());
+            if (bidder == null) {
+                throw new BusinessException("竞买人信息不存在");
+            }
+            if (bidder.getJudicialFrozen() != null && bidder.getJudicialFrozen() == 1) {
+                String frozenReason = bidder.getFrozenReason() != null ? bidder.getFrozenReason() : "账户已被司法冻结";
+                throw new BusinessException(frozenReason + "，不能申请退款");
+            }
             if (refund.getBankAccount() == null || refund.getBankAccount().trim().isEmpty()) {
-                throw new BusinessException("银行账号不能为空");
+                throw new BusinessException("收款银行账号不能为空，请完善账户信息");
             }
             if (refund.getBankName() == null || refund.getBankName().trim().isEmpty()) {
-                throw new BusinessException("银行名称不能为空");
+                throw new BusinessException("开户银行不能为空，请完善账户信息");
             }
             if (refund.getBankBranch() == null || refund.getBankBranch().trim().isEmpty()) {
-                throw new BusinessException("银行支行不能为空");
+                throw new BusinessException("开户支行不能为空，请完善账户信息");
+            }
+            if (refund.getPayeeName() == null || refund.getPayeeName().trim().isEmpty()) {
+                throw new BusinessException("收款人姓名不能为空，请完善账户信息");
             }
         }
 
@@ -142,6 +162,12 @@ public class RefundServiceImpl implements RefundService {
 
         deposit.setRefundStatus("refunding");
         deposit.setBankAccountEditable(0);
+        deposit.setBankAccountLockTime(LocalDateTime.now());
+        deposit.setBankAccountLockBy(applyBy);
+        deposit.setBankAccount(refund.getBankAccount());
+        deposit.setBankName(refund.getBankName());
+        deposit.setBankBranch(refund.getBankBranch());
+        deposit.setPayeeName(refund.getPayeeName());
         deposit.setUpdateTime(LocalDateTime.now());
         auctionDepositMapper.updateById(deposit);
 
@@ -179,6 +205,8 @@ public class RefundServiceImpl implements RefundService {
             if (deposit != null) {
                 deposit.setRefundStatus("norefund");
                 deposit.setBankAccountEditable(1);
+                deposit.setBankAccountLockTime(null);
+                deposit.setBankAccountLockBy(null);
                 deposit.setUpdateTime(LocalDateTime.now());
                 auctionDepositMapper.updateById(deposit);
             }
@@ -222,6 +250,118 @@ public class RefundServiceImpl implements RefundService {
         auditLogService.logAudit("REFUND_APPLY", refundId, refundApply.getRefundNo(),
                 "COMPLETE", "确认退款完成", beforeStatus, "completed",
                 "支付订单号：" + payOrderNo);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void failRefund(Long refundId, String failReason) {
+        RefundApply refundApply = refundApplyMapper.selectById(refundId);
+        if (refundApply == null) {
+            throw new BusinessException("退款申请不存在");
+        }
+        if (!"processing".equals(refundApply.getApplyStatus())) {
+            throw new BusinessException("退款申请状态不正确，仅处理中状态可标记失败");
+        }
+        String beforeStatus = refundApply.getApplyStatus();
+        refundApply.setApplyStatus("failed");
+        refundApply.setFailReason(failReason);
+        refundApply.setUpdateTime(LocalDateTime.now());
+        refundApplyMapper.updateById(refundApply);
+
+        AuctionDeposit deposit = auctionDepositMapper.selectById(refundApply.getDepositId());
+        if (deposit != null) {
+            deposit.setRefundStatus("refund_failed");
+            deposit.setUpdateTime(LocalDateTime.now());
+            auctionDepositMapper.updateById(deposit);
+        }
+
+        auditLogService.logAudit("REFUND_APPLY", refundId, refundApply.getRefundNo(),
+                "FAIL", "标记退款失败", beforeStatus, "failed",
+                "失败原因：" + failReason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public RefundApply reapplyRefund(Long originalRefundId, Long applyBy, RefundApply refund) {
+        RefundApply originalRefund = refundApplyMapper.selectById(originalRefundId);
+        if (originalRefund == null) {
+            throw new BusinessException("原退款申请不存在");
+        }
+        if (!"failed".equals(originalRefund.getApplyStatus())) {
+            throw new BusinessException("仅失败状态的退款申请可重提");
+        }
+
+        AuctionDeposit deposit = auctionDepositMapper.selectById(originalRefund.getDepositId());
+        if (deposit == null) {
+            throw new BusinessException("保证金记录不存在");
+        }
+
+        SysUser bidder = sysUserMapper.selectById(deposit.getBidderId());
+        if (bidder != null && bidder.getJudicialFrozen() != null && bidder.getJudicialFrozen() == 1) {
+            String frozenReason = bidder.getFrozenReason() != null ? bidder.getFrozenReason() : "账户已被司法冻结";
+            throw new BusinessException(frozenReason + "，不能重提退款");
+        }
+
+        String bankAccount = (refund.getBankAccount() != null && !refund.getBankAccount().trim().isEmpty())
+                ? refund.getBankAccount() : originalRefund.getBankAccount();
+        String bankName = (refund.getBankName() != null && !refund.getBankName().trim().isEmpty())
+                ? refund.getBankName() : originalRefund.getBankName();
+        String bankBranch = (refund.getBankBranch() != null && !refund.getBankBranch().trim().isEmpty())
+                ? refund.getBankBranch() : originalRefund.getBankBranch();
+        String payeeName = (refund.getPayeeName() != null && !refund.getPayeeName().trim().isEmpty())
+                ? refund.getPayeeName() : originalRefund.getPayeeName();
+
+        if (bankAccount == null || bankAccount.trim().isEmpty()) {
+            throw new BusinessException("收款银行账号不能为空");
+        }
+        if (bankName == null || bankName.trim().isEmpty()) {
+            throw new BusinessException("开户银行不能为空");
+        }
+        if (bankBranch == null || bankBranch.trim().isEmpty()) {
+            throw new BusinessException("开户支行不能为空");
+        }
+        if (payeeName == null || payeeName.trim().isEmpty()) {
+            throw new BusinessException("收款人姓名不能为空");
+        }
+
+        String refundNo = generateRefundNo();
+        RefundApply newRefundApply = new RefundApply();
+        newRefundApply.setRefundNo(refundNo);
+        newRefundApply.setParentId(originalRefundId);
+        newRefundApply.setDepositId(originalRefund.getDepositId());
+        newRefundApply.setItemId(originalRefund.getItemId());
+        newRefundApply.setBidderId(originalRefund.getBidderId());
+        newRefundApply.setRefundAmount(originalRefund.getRefundAmount());
+        newRefundApply.setRefundType(originalRefund.getRefundType());
+        newRefundApply.setRefundReason(refund.getRefundReason() != null ? refund.getRefundReason() : "退款失败后重提");
+        newRefundApply.setBankAccount(bankAccount);
+        newRefundApply.setBankName(bankName);
+        newRefundApply.setBankBranch(bankBranch);
+        newRefundApply.setPayeeName(payeeName);
+        newRefundApply.setApplyStatus("pending");
+        newRefundApply.setApplyBy(applyBy);
+        newRefundApply.setApplyTime(LocalDateTime.now());
+        newRefundApply.setRemark("重提原申请：" + originalRefund.getRefundNo() + "；" + (refund.getRemark() != null ? refund.getRemark() : ""));
+        newRefundApply.setCreateTime(LocalDateTime.now());
+        newRefundApply.setUpdateTime(LocalDateTime.now());
+        refundApplyMapper.insert(newRefundApply);
+
+        deposit.setRefundStatus("refunding");
+        deposit.setBankAccountEditable(0);
+        deposit.setBankAccountLockTime(LocalDateTime.now());
+        deposit.setBankAccountLockBy(applyBy);
+        deposit.setBankAccount(bankAccount);
+        deposit.setBankName(bankName);
+        deposit.setBankBranch(bankBranch);
+        deposit.setPayeeName(payeeName);
+        deposit.setUpdateTime(LocalDateTime.now());
+        auctionDepositMapper.updateById(deposit);
+
+        auditLogService.logAudit("REFUND_APPLY", newRefundApply.getId(), refundNo,
+                "REAPPLY", "重提退款申请", null, "pending",
+                "原退款申请ID：" + originalRefundId + "，退款金额：" + originalRefund.getRefundAmount());
+
+        return newRefundApply;
     }
 
     @Override

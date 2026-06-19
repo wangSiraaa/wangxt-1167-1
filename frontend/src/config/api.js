@@ -32,6 +32,8 @@ const api = {
   refundApply: `${API_PREFIX}/refund/apply`,
   refundAudit: `${API_PREFIX}/refund/audit`,
   refundComplete: `${API_PREFIX}/refund/complete`,
+  refundFail: `${API_PREFIX}/refund/fail`,
+  refundReapply: `${API_PREFIX}/refund/reapply`,
   refundMyRefund: `${API_PREFIX}/refund/myRefund`,
 
   deductList: `${API_PREFIX}/deduct/list`,
@@ -41,6 +43,8 @@ const api = {
   fundFlowList: `${API_PREFIX}/fund/flow/list`,
   fundFlowDetail: `${API_PREFIX}/fund/flow`,
   fundFlowMyFlow: `${API_PREFIX}/fund/flow/myFlow`,
+  fundChain: `${API_PREFIX}/fund/flow/chain`,
+  fundChainByItem: `${API_PREFIX}/fund/flow/chainByItem`,
 
   auditLogList: `${API_PREFIX}/system/audit/list`,
 

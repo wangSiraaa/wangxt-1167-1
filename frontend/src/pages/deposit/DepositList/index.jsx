@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Table, Button, Form, Input, Select, Tag, Space, message, Modal, InputNumber } from 'antd'
-import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, DollarOutlined, AuditOutlined } from '@ant-design/icons'
+import { Table, Button, Form, Input, Select, Tag, Space, message, Modal, InputNumber, Tooltip } from 'antd'
+import { PlusOutlined, ReloadOutlined, EyeOutlined, BankOutlined, DollarOutlined, AuditOutlined, WarningOutlined, LockOutlined } from '@ant-design/icons'
 import request from '../../../utils/request'
 import { formatMoney, formatDateTime } from '../../../utils/format'
 import api from '../../../config/api'
@@ -30,6 +30,23 @@ const REFUND_STATUS_OPTIONS = [
   { value: 'REFUND_FAILED', label: '退款失败' }
 ]
 
+const DEDUCT_STATUS_OPTIONS = [
+  { value: 'nodeduct', label: '未抵扣' },
+  { value: 'pending_deduct', label: '待抵扣' },
+  { value: 'deducted', label: '已抵扣' },
+  { value: 'partial_deducted', label: '部分抵扣' }
+]
+
+const normalizeStatus = (status) => {
+  if (!status) return ''
+  const s = String(status).toUpperCase()
+  if (s === 'NODEDUCT') return 'NOT_DEDUCT'
+  if (s === 'PENDING_DEDUCT') return 'PENDING_DEDUCT'
+  if (s === 'DEDUCTED') return 'DEDUCTED'
+  if (s === 'PARTIAL_DEDUCTED') return 'PARTIAL_DEDUCT'
+  return s
+}
+
 const PAY_STATUS_MAP = {
   UNPAID: { text: '未缴纳', color: 'default' },
   PAID: { text: '已缴纳', color: 'green' },
@@ -47,13 +64,18 @@ const REFUND_STATUS_MAP = {
   NOT_REFUND: { text: '未退款', color: 'default' },
   REFUNDING: { text: '退款中', color: 'blue' },
   REFUNDED: { text: '已退款', color: 'green' },
-  REFUND_FAILED: { text: '退款失败', color: 'red' }
+  REFUND_FAILED: { text: '退款失败', color: 'red' },
+  PROCESSING: { text: '处理中', color: 'blue' },
+  PENDING: { text: '待审核', color: 'orange' },
+  COMPLETED: { text: '已完成', color: 'green' },
+  FAILED: { text: '失败', color: 'red' }
 }
 
 const DEDUCT_STATUS_MAP = {
   NOT_DEDUCT: { text: '未抵扣', color: 'default' },
+  PENDING_DEDUCT: { text: '待抵扣', color: 'orange' },
   DEDUCTED: { text: '已抵扣', color: 'green' },
-  PARTIAL_DEDUCT: { text: '部分抵扣', color: 'orange' }
+  PARTIAL_DEDUCT: { text: '部分抵扣', color: 'blue' }
 }
 
 function DepositList() {
@@ -149,12 +171,27 @@ function DepositList() {
   }
 
   const handleRefund = (record) => {
-    if (record.payStatus !== 'PAID') {
+    if (record.payStatus !== 'PAID' && String(record.payStatus).toUpperCase() !== 'PAID') {
       message.warning('只有已缴纳的保证金才能退款')
       return
     }
-    if (record.refundStatus === 'REFUNDING' || record.refundStatus === 'REFUNDED') {
-      message.warning('该保证金已申请退款或已退款')
+    if (record.bidStatus === 'WON' || String(record.bidStatus).toUpperCase() === 'WON') {
+      const deductStatus = normalizeStatus(record.deductStatus)
+      if (deductStatus === 'PENDING_DEDUCT' || deductStatus === 'DEDUCTED' || deductStatus === 'PARTIAL_DEDUCT') {
+        message.warning('竞得人保证金已转待抵扣或已抵扣，不允许直接退款')
+        return
+      }
+    }
+    if (record.refundStatus === 'REFUNDING' || record.refundStatus === 'PENDING' || record.refundStatus === 'PROCESSING') {
+      message.warning('该保证金已申请退款，处理中')
+      return
+    }
+    if (record.refundStatus === 'REFUNDED' || record.refundStatus === 'COMPLETED') {
+      message.warning('该保证金已完成退款')
+      return
+    }
+    if (record.judicialFrozen === 1 || record.judicialFrozen === true) {
+      message.warning(`该竞买人账户已司法冻结${record.frozenReason ? `：${record.frozenReason}` : ''}，不允许退款`)
       return
     }
     setCurrentDepositId(record.id)
@@ -164,11 +201,12 @@ function DepositList() {
   }
 
   const handleDeduct = (record) => {
-    if (record.payStatus !== 'PAID') {
+    if (record.payStatus !== 'PAID' && String(record.payStatus).toUpperCase() !== 'PAID') {
       message.warning('只有已缴纳的保证金才能抵扣')
       return
     }
-    if (record.deductStatus === 'DEDUCTED') {
+    const deductStatus = normalizeStatus(record.deductStatus)
+    if (deductStatus === 'DEDUCTED') {
       message.warning('该保证金已全部抵扣')
       return
     }
@@ -216,9 +254,33 @@ function DepositList() {
   }
 
   const getStatusTag = (status, statusMap) => {
-    const info = statusMap[status]
+    const norm = normalizeStatus(status)
+    const info = statusMap[norm] || statusMap[status]
     if (!info) return <Tag>{status}</Tag>
     return <Tag color={info.color}>{info.text}</Tag>
+  }
+
+  const renderJudicialFrozen = (val, record) => {
+    if (val === 1 || val === true) {
+      return (
+        <Tooltip title={record.frozenReason ? `冻结原因：${record.frozenReason}，冻结时间：${formatDateTime(record.frozenTime)}` : '该用户已被司法冻结'}>
+          <Tag color="red" icon={<WarningOutlined />}>已冻结</Tag>
+        </Tooltip>
+      )
+    }
+    return <Tag color="green">正常</Tag>
+  }
+
+  const renderAccountLock = (val, record) => {
+    const isLocked = record.bankAccountEditable === 0 || record.bankAccountLockTime
+    if (isLocked) {
+      return (
+        <Tooltip title={`锁定时间：${formatDateTime(record.bankAccountLockTime)}，锁定人：${record.bankAccountLockBy || '系统'}`}>
+          <Tag color="orange" icon={<LockOutlined />}>已锁定</Tag>
+        </Tooltip>
+      )
+    }
+    return <Tag color="green">可编辑</Tag>
   }
 
   const columns = [
@@ -233,20 +295,26 @@ function DepositList() {
       title: '标的名称',
       dataIndex: 'itemName',
       key: 'itemName',
-      width: 200,
+      width: 180,
       ellipsis: true
     },
     {
       title: '竞买人',
       dataIndex: 'bidderName',
       key: 'bidderName',
-      width: 100
+      width: 100,
+      render: (val, record) => (
+        <Space direction="vertical" size={0}>
+          <span>{val}</span>
+          {renderJudicialFrozen(record.judicialFrozen, record)}
+        </Space>
+      )
     },
     {
       title: '保证金金额',
       dataIndex: 'depositAmount',
       key: 'depositAmount',
-      width: 130,
+      width: 120,
       render: (val) => (
         <span style={{ color: '#f5222d', fontWeight: 500 }}>¥{formatMoney(val)}</span>
       )
@@ -255,54 +323,72 @@ function DepositList() {
       title: '缴纳状态',
       dataIndex: 'payStatus',
       key: 'payStatus',
-      width: 100,
+      width: 90,
       render: (val) => getStatusTag(val, PAY_STATUS_MAP)
     },
     {
       title: '竞买状态',
       dataIndex: 'bidStatus',
       key: 'bidStatus',
-      width: 100,
+      width: 90,
       render: (val) => getStatusTag(val, BID_STATUS_MAP)
-    },
-    {
-      title: '退款状态',
-      dataIndex: 'refundStatus',
-      key: 'refundStatus',
-      width: 100,
-      render: (val) => getStatusTag(val, REFUND_STATUS_MAP)
     },
     {
       title: '抵扣状态',
       dataIndex: 'deductStatus',
       key: 'deductStatus',
-      width: 100,
+      width: 90,
       render: (val) => getStatusTag(val, DEDUCT_STATUS_MAP)
+    },
+    {
+      title: '退款状态',
+      dataIndex: 'refundStatus',
+      key: 'refundStatus',
+      width: 90,
+      render: (val) => getStatusTag(val, REFUND_STATUS_MAP)
+    },
+    {
+      title: '账号状态',
+      dataIndex: 'bankAccountEditable',
+      key: 'bankAccountEditable',
+      width: 90,
+      render: (val, record) => renderAccountLock(val, record)
     },
     {
       title: '可退款金额',
       dataIndex: 'refundableAmount',
       key: 'refundableAmount',
-      width: 130,
+      width: 120,
       render: (val) => <span style={{ color: '#52c41a' }}>¥{formatMoney(val)}</span>
     },
     {
       title: '操作',
       key: 'action',
-      width: 280,
+      width: 260,
       fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
+        <Space size="small" wrap>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleDetail(record)}>
             详情
           </Button>
           <Button type="link" size="small" icon={<BankOutlined />} onClick={() => handleBankAccount(record)}>
-            更新收款账号
+            收款账号
           </Button>
-          <Button type="link" size="small" icon={<DollarOutlined />} onClick={() => handleRefund(record)}>
+          <Button
+            type="link"
+            size="small"
+            icon={<DollarOutlined />}
+            onClick={() => handleRefund(record)}
+            disabled={record.judicialFrozen === 1 || record.judicialFrozen === true}
+          >
             退款
           </Button>
-          <Button type="link" size="small" icon={<AuditOutlined />} onClick={() => handleDeduct(record)}>
+          <Button
+            type="link"
+            size="small"
+            icon={<AuditOutlined />}
+            onClick={() => handleDeduct(record)}
+          >
             抵扣
           </Button>
         </Space>
@@ -325,7 +411,7 @@ function DepositList() {
           <Input placeholder="请输入" style={{ width: 120 }} allowClear />
         </Form.Item>
         <Form.Item name="payStatus" label="缴纳状态">
-          <Select placeholder="请选择" style={{ width: 120 }} allowClear>
+          <Select placeholder="请选择" style={{ width: 100 }} allowClear>
             {PAY_STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -334,7 +420,7 @@ function DepositList() {
           </Select>
         </Form.Item>
         <Form.Item name="bidStatus" label="竞买状态">
-          <Select placeholder="请选择" style={{ width: 120 }} allowClear>
+          <Select placeholder="请选择" style={{ width: 100 }} allowClear>
             {BID_STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -343,8 +429,17 @@ function DepositList() {
           </Select>
         </Form.Item>
         <Form.Item name="refundStatus" label="退款状态">
-          <Select placeholder="请选择" style={{ width: 120 }} allowClear>
+          <Select placeholder="请选择" style={{ width: 100 }} allowClear>
             {REFUND_STATUS_OPTIONS.map((opt) => (
+              <Option key={opt.value} value={opt.value}>
+                {opt.label}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="deductStatus" label="抵扣状态">
+          <Select placeholder="请选择" style={{ width: 100 }} allowClear>
+            {DEDUCT_STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
                 {opt.label}
               </Option>
@@ -367,7 +462,7 @@ function DepositList() {
         dataSource={dataSource}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1500 }}
         pagination={{
           ...pagination,
           showSizeChanger: true,
@@ -403,7 +498,7 @@ function DepositList() {
         onCancel={() => setRefundModalVisible(false)}
         onOk={submitRefund}
         okText="提交申请"
-        width={500}
+        width={520}
       >
         {currentDeposit && (
           <Form form={refundForm} layout="vertical">
@@ -428,7 +523,7 @@ function DepositList() {
               name="refundReason"
               rules={[{ required: true, message: '请输入退款原因' }]}
             >
-              <Input.TextArea rows={3} placeholder="请输入退款原因" />
+              <Input.TextArea rows={3} placeholder="请输入退款原因" maxLength={500} showCount />
             </Form.Item>
           </Form>
         )}
@@ -440,7 +535,7 @@ function DepositList() {
         onCancel={() => setDeductModalVisible(false)}
         onOk={submitDeduct}
         okText="确认抵扣"
-        width={500}
+        width={520}
       >
         {currentDeposit && (
           <Form form={deductForm} layout="vertical">
@@ -491,7 +586,7 @@ function DepositList() {
               <Input placeholder="请输入" />
             </Form.Item>
             <Form.Item label="抵扣原因" name="deductReason">
-              <Input.TextArea rows={3} placeholder="请输入抵扣原因" />
+              <Input.TextArea rows={3} placeholder="请输入抵扣原因" maxLength={500} showCount />
             </Form.Item>
           </Form>
         )}

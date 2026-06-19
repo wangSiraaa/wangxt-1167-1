@@ -1,42 +1,44 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Form, Input, Select, Tag, Space, message, DatePicker } from 'antd'
-import { PlusOutlined, ReloadOutlined, EyeOutlined, AuditOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { PlusOutlined, ReloadOutlined, EyeOutlined, AuditOutlined, CheckCircleOutlined, CloseCircleOutlined, RedoOutlined } from '@ant-design/icons'
 import request from '../../../utils/request'
 import { formatMoney, formatDateTime } from '../../../utils/format'
 import api from '../../../config/api'
 import ApplyModal from './ApplyModal'
 import AuditModal from './AuditModal'
 import DetailModal from './DetailModal'
+import FailModal from './FailModal'
+import ReapplyModal from './ReapplyModal'
 
 const { Option } = Select
 const { RangePicker } = DatePicker
 
 const REFUND_STATUS_OPTIONS = [
-  { value: 'PENDING', label: '待审核' },
-  { value: 'APPROVED', label: '审核通过' },
-  { value: 'REJECTED', label: '审核驳回' },
-  { value: 'PROCESSING', label: '处理中' },
-  { value: 'COMPLETED', label: '已完成' },
-  { value: 'FAILED', label: '失败' }
+  { value: 'pending', label: '待审核' },
+  { value: 'approved', label: '审核通过' },
+  { value: 'rejected', label: '审核驳回' },
+  { value: 'processing', label: '处理中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'failed', label: '失败' }
 ]
 
 const REFUND_TYPE_OPTIONS = [
-  { value: 'FULL', label: '全额退款' },
-  { value: 'PARTIAL', label: '部分退款' }
+  { value: 'full', label: '全额退款' },
+  { value: 'partial', label: '部分退款' }
 ]
 
 const REFUND_STATUS_MAP = {
-  PENDING: { text: '待审核', color: 'orange' },
-  APPROVED: { text: '审核通过', color: 'blue' },
-  REJECTED: { text: '审核驳回', color: 'red' },
-  PROCESSING: { text: '处理中', color: 'blue' },
-  COMPLETED: { text: '已完成', color: 'green' },
-  FAILED: { text: '失败', color: 'red' }
+  pending: { text: '待审核', color: 'orange' },
+  approved: { text: '审核通过', color: 'blue' },
+  rejected: { text: '审核驳回', color: 'red' },
+  processing: { text: '处理中', color: 'blue' },
+  completed: { text: '已完成', color: 'green' },
+  failed: { text: '失败', color: 'red' }
 }
 
 const REFUND_TYPE_MAP = {
-  FULL: { text: '全额退款', color: 'green' },
-  PARTIAL: { text: '部分退款', color: 'blue' }
+  full: { text: '全额退款', color: 'green' },
+  partial: { text: '部分退款', color: 'blue' }
 }
 
 function RefundApply() {
@@ -52,6 +54,8 @@ function RefundApply() {
   const [applyVisible, setApplyVisible] = useState(false)
   const [auditVisible, setAuditVisible] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
+  const [failVisible, setFailVisible] = useState(false)
+  const [reapplyVisible, setReapplyVisible] = useState(false)
   const [currentRefundId, setCurrentRefundId] = useState(null)
   const [currentRefund, setCurrentRefund] = useState(null)
 
@@ -132,7 +136,7 @@ function RefundApply() {
   }
 
   const handleAudit = (record) => {
-    if (record.status !== 'PENDING') {
+    if (record.applyStatus !== 'pending') {
       message.warning('只有待审核状态的申请才能审核')
       return
     }
@@ -142,18 +146,42 @@ function RefundApply() {
   }
 
   const handleConfirm = async (record) => {
-    if (record.status !== 'PROCESSING') {
+    if (record.applyStatus !== 'processing') {
       message.warning('只有处理中状态的申请才能确认完成')
       return
     }
     try {
-      await request.post(`${api.refundConfirm}/${record.id}`)
+      await request.put(api.refundComplete, null, {
+        params: {
+          refundId: record.id,
+          payOrderNo: 'PY' + Date.now()
+        }
+      })
       message.success('确认完成成功')
       handleSearch()
     } catch (e) {
       console.error('确认完成失败', e)
       message.error(e.message || '确认完成失败')
     }
+  }
+
+  const handleFail = (record) => {
+    if (record.applyStatus !== 'processing') {
+      message.warning('只有处理中状态的申请才能标记失败')
+      return
+    }
+    setCurrentRefundId(record.id)
+    setCurrentRefund(record)
+    setFailVisible(true)
+  }
+
+  const handleReapply = (record) => {
+    if (record.applyStatus !== 'failed') {
+      message.warning('只有失败状态的申请才能重提')
+      return
+    }
+    setCurrentRefund(record)
+    setReapplyVisible(true)
   }
 
   const getStatusTag = (status, statusMap) => {
@@ -168,25 +196,26 @@ function RefundApply() {
       dataIndex: 'refundNo',
       key: 'refundNo',
       width: 160,
-      fixed: 'left'
+      fixed: 'left',
+      render: (val, record) => (
+        <Space direction="vertical" size={0}>
+          <span>{val}</span>
+          {record.parentId && (
+            <span style={{ color: '#999', fontSize: 12 }}>重提申请</span>
+          )}
+        </Space>
+      )
     },
     {
-      title: '保证金编号',
-      dataIndex: 'depositNo',
-      key: 'depositNo',
-      width: 160
+      title: '保证金ID',
+      dataIndex: 'depositId',
+      key: 'depositId',
+      width: 100
     },
     {
-      title: '标的名称',
-      dataIndex: 'itemName',
-      key: 'itemName',
-      width: 200,
-      ellipsis: true
-    },
-    {
-      title: '竞买人',
-      dataIndex: 'bidderName',
-      key: 'bidderName',
+      title: '竞买人ID',
+      dataIndex: 'bidderId',
+      key: 'bidderId',
       width: 100
     },
     {
@@ -207,36 +236,54 @@ function RefundApply() {
     },
     {
       title: '申请状态',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'applyStatus',
+      key: 'applyStatus',
       width: 100,
       render: (val) => getStatusTag(val, REFUND_STATUS_MAP)
     },
     {
       title: '申请时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      dataIndex: 'applyTime',
+      key: 'applyTime',
       width: 170,
       render: (val) => formatDateTime(val)
     },
     {
+      title: '失败原因',
+      dataIndex: 'failReason',
+      key: 'failReason',
+      width: 160,
+      ellipsis: true,
+      render: (val) => val || '-'
+    },
+    {
       title: '操作',
       key: 'action',
-      width: 220,
+      width: 300,
       fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
+        <Space size="small" wrap>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleDetail(record)}>
             详情
           </Button>
-          {record.status === 'PENDING' && (
+          {record.applyStatus === 'pending' && (
             <Button type="link" size="small" icon={<AuditOutlined />} onClick={() => handleAudit(record)}>
               审核
             </Button>
           )}
-          {record.status === 'PROCESSING' && (
+          {record.applyStatus === 'processing' && (
             <Button type="link" size="small" icon={<CheckCircleOutlined />} onClick={() => handleConfirm(record)}>
               确认完成
+            </Button>
+          )}
+          {record.applyStatus === 'processing' && (
+            <Button type="link" size="small" danger icon={<CloseCircleOutlined />} onClick={() => handleFail(record)}>
+              标记失败
+            </Button>
+          )}
+          {record.applyStatus === 'failed' && (
+            <Button type="link" size="small" icon={<RedoOutlined />} onClick={() => handleReapply(record)}>
+              重提申请
             </Button>
           )}
         </Space>
@@ -252,13 +299,7 @@ function RefundApply() {
         <Form.Item name="refundNo" label="退款编号">
           <Input placeholder="请输入" style={{ width: 150 }} allowClear />
         </Form.Item>
-        <Form.Item name="itemName" label="标的名称">
-          <Input placeholder="请输入" style={{ width: 150 }} allowClear />
-        </Form.Item>
-        <Form.Item name="bidderName" label="竞买人">
-          <Input placeholder="请输入" style={{ width: 120 }} allowClear />
-        </Form.Item>
-        <Form.Item name="status" label="申请状态">
+        <Form.Item name="applyStatus" label="申请状态">
           <Select placeholder="请选择" style={{ width: 120 }} allowClear>
             {REFUND_STATUS_OPTIONS.map((opt) => (
               <Option key={opt.value} value={opt.value}>
@@ -266,9 +307,6 @@ function RefundApply() {
               </Option>
             ))}
           </Select>
-        </Form.Item>
-        <Form.Item name="dateRange" label="起止时间">
-          <RangePicker showTime showSecond={false} style={{ width: 260 }} />
         </Form.Item>
         <Form.Item>
           <Space>
@@ -286,7 +324,7 @@ function RefundApply() {
         dataSource={dataSource}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1300 }}
+        scroll={{ x: 1400 }}
         pagination={{
           ...pagination,
           showSizeChanger: true,
@@ -320,6 +358,26 @@ function RefundApply() {
         visible={detailVisible}
         refundId={currentRefundId}
         onCancel={() => setDetailVisible(false)}
+      />
+
+      <FailModal
+        visible={failVisible}
+        refundId={currentRefundId}
+        onCancel={() => setFailVisible(false)}
+        onSuccess={() => {
+          setFailVisible(false)
+          handleSearch()
+        }}
+      />
+
+      <ReapplyModal
+        visible={reapplyVisible}
+        originalRefund={currentRefund}
+        onCancel={() => setReapplyVisible(false)}
+        onSuccess={() => {
+          setReapplyVisible(false)
+          handleSearch()
+        }}
       />
     </div>
   )

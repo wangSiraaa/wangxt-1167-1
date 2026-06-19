@@ -19,6 +19,10 @@ public interface RefundService {
 
     void completeRefund(Long refundId, String payOrderNo);
 
+    void failRefund(Long refundId, String failReason);
+
+    RefundApply reapplyRefund(Long originalRefundId, Long applyBy, RefundApply refund);
+
     List<RefundApply> getRefundByDepositId(Long depositId);
 
     List<RefundApply> getMyRefund(Long bidderId);

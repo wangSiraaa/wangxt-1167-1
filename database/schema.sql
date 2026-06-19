@@ -22,6 +22,9 @@ CREATE TABLE sys_user (
     bank_name VARCHAR(100) COMMENT '开户银行',
     bank_branch VARCHAR(100) COMMENT '开户支行',
     status TINYINT DEFAULT 1 COMMENT '状态：1-启用 0-禁用',
+    judicial_frozen TINYINT DEFAULT 0 COMMENT '司法冻结标记：0-未冻结 1-已冻结',
+    frozen_reason VARCHAR(500) COMMENT '司法冻结原因',
+    frozen_time DATETIME COMMENT '司法冻结时间',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_username (username),
@@ -152,11 +155,14 @@ CREATE TABLE auction_deposit (
     pay_order_no VARCHAR(100) COMMENT '支付流水号',
     bid_status VARCHAR(20) DEFAULT 'bidding' COMMENT '竞买状态：bidding-竞买中 won-竞得 lost-未竞得',
     refund_status VARCHAR(20) DEFAULT 'norefund' COMMENT '退款状态：norefund-未退款 refunding-退款中 refunded-已退款 refund_failed-退款失败',
-    deduct_status VARCHAR(20) DEFAULT 'nodeduct' COMMENT '抵扣状态：nodeduct-未抵扣 deducted-已抵扣 partial_deducted-部分抵扣',
+    deduct_status VARCHAR(20) DEFAULT 'nodeduct' COMMENT '抵扣状态：nodeduct-未抵扣 pending_deduct-待抵扣 deducted-已抵扣 partial_deducted-部分抵扣',
     deduct_amount DECIMAL(15,2) DEFAULT 0 COMMENT '已抵扣金额',
     refundable_amount DECIMAL(15,2) DEFAULT 0 COMMENT '可退款金额',
     refund_time DATETIME COMMENT '退款时间',
     bank_account_editable TINYINT DEFAULT 1 COMMENT '收款账号是否可修改：1-可修改 0-不可修改',
+    bank_account_lock_time DATETIME COMMENT '收款账号锁定时间',
+    bank_account_lock_by BIGINT COMMENT '收款账号锁定人ID',
+    payee_name VARCHAR(50) COMMENT '收款人姓名',
     remark VARCHAR(500) COMMENT '备注',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -164,7 +170,8 @@ CREATE TABLE auction_deposit (
     INDEX idx_item_id (item_id),
     INDEX idx_bidder_id (bidder_id),
     INDEX idx_pay_status (pay_status),
-    INDEX idx_refund_status (refund_status)
+    INDEX idx_refund_status (refund_status),
+    INDEX idx_deduct_status (deduct_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='保证金表';
 
 -- =============================================
@@ -174,6 +181,7 @@ DROP TABLE IF EXISTS refund_apply;
 CREATE TABLE refund_apply (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '退款申请ID',
     refund_no VARCHAR(50) NOT NULL UNIQUE COMMENT '退款编号',
+    parent_id BIGINT COMMENT '父退款申请ID（重提申请时关联原申请）',
     deposit_id BIGINT NOT NULL COMMENT '保证金ID',
     item_id BIGINT NOT NULL COMMENT '标的物ID',
     bidder_id BIGINT NOT NULL COMMENT '竞买人ID',
@@ -191,6 +199,7 @@ CREATE TABLE refund_apply (
     audit_time DATETIME COMMENT '审核时间',
     audit_remark VARCHAR(500) COMMENT '审核意见',
     pay_order_no VARCHAR(100) COMMENT '退款支付流水号',
+    fail_reason VARCHAR(500) COMMENT '退款失败原因',
     complete_time DATETIME COMMENT '完成时间',
     remark VARCHAR(500) COMMENT '备注',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -198,7 +207,8 @@ CREATE TABLE refund_apply (
     INDEX idx_refund_no (refund_no),
     INDEX idx_deposit_id (deposit_id),
     INDEX idx_bidder_id (bidder_id),
-    INDEX idx_apply_status (apply_status)
+    INDEX idx_apply_status (apply_status),
+    INDEX idx_parent_id (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='退款申请表';
 
 -- =============================================

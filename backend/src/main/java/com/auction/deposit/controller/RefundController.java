@@ -73,6 +73,22 @@ public class RefundController {
         return Result.success();
     }
 
+    @ApiOperation("标记退款失败")
+    @PutMapping("/fail")
+    public Result<Void> fail(@RequestParam Long refundId, @RequestParam String failReason) {
+        refundService.failRefund(refundId, failReason);
+        return Result.success();
+    }
+
+    @ApiOperation("重提退款申请")
+    @PostMapping("/reapply")
+    public Result<RefundApply> reapply(@RequestParam Long originalRefundId, @RequestBody RefundApplyDTO dto) {
+        RefundApply refund = new RefundApply();
+        BeanUtils.copyProperties(dto, refund);
+        RefundApply result = refundService.reapplyRefund(originalRefundId, CurrentUser.getUserId(), refund);
+        return Result.success(result);
+    }
+
     @ApiOperation("我的退款")
     @GetMapping("/myRefund")
     public Result<List<RefundApply>> myRefund() {

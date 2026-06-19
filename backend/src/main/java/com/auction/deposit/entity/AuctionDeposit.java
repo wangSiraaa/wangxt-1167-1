@@ -43,11 +43,17 @@ public class AuctionDeposit {
 
     private Integer bankAccountEditable;
 
+    private LocalDateTime bankAccountLockTime;
+
+    private Long bankAccountLockBy;
+
     private String bankAccount;
 
     private String bankName;
 
     private String bankBranch;
+
+    private String payeeName;
 
     private String remark;
 
@@ -181,6 +187,30 @@ public class AuctionDeposit {
 
     public void setBankAccountEditable(Integer bankAccountEditable) {
         this.bankAccountEditable = bankAccountEditable;
+    }
+
+    public LocalDateTime getBankAccountLockTime() {
+        return bankAccountLockTime;
+    }
+
+    public void setBankAccountLockTime(LocalDateTime bankAccountLockTime) {
+        this.bankAccountLockTime = bankAccountLockTime;
+    }
+
+    public Long getBankAccountLockBy() {
+        return bankAccountLockBy;
+    }
+
+    public void setBankAccountLockBy(Long bankAccountLockBy) {
+        this.bankAccountLockBy = bankAccountLockBy;
+    }
+
+    public String getPayeeName() {
+        return payeeName;
+    }
+
+    public void setPayeeName(String payeeName) {
+        this.payeeName = payeeName;
     }
 
     public String getBankAccount() {

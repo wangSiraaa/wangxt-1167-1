@@ -145,6 +145,10 @@ public class AuctionItemServiceImpl implements AuctionItemService {
         for (AuctionDeposit deposit : depositList) {
             if (deposit.getBidderId().equals(winnerId)) {
                 deposit.setBidStatus("won");
+                deposit.setDeductStatus("pending_deduct");
+                deposit.setBankAccountEditable(0);
+                deposit.setBankAccountLockTime(LocalDateTime.now());
+                deposit.setBankAccountLockBy(CurrentUser.getUserId());
             } else {
                 deposit.setBidStatus("lost");
             }
@@ -154,7 +158,7 @@ public class AuctionItemServiceImpl implements AuctionItemService {
 
         auditLogService.logAudit("AUCTION_ITEM", itemId, item.getItemCode(),
                 "CONFIRM_DEAL", "确认成交", beforeStatus, "dealed",
-                "竞得人ID：" + winnerId + "，成交价：" + dealPrice);
+                "竞得人ID：" + winnerId + "，成交价：" + dealPrice + "，竞得人保证金已转入待抵扣");
     }
 
     @Override
